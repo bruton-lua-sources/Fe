@@ -1,0 +1,145 @@
+local TeleportTime = 0.1
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local localPlayer = Players.LocalPlayer
+
+local function resetCameraSubject()
+	if workspace.CurrentCamera and localPlayer.Character then
+		local humanoid = localPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+		if humanoid then
+			workspace.CurrentCamera.CameraSubject = humanoid
+		end
+	end
+end
+
+local plr = Players.LocalPlayer
+local character = plr.Character or plr.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+local gui = Instance.new("ScreenGui")
+local btn = Instance.new("TextButton")
+local glow = Instance.new("UIStroke")
+local outerGlow = Instance.new("UIStroke")
+local uicorner = Instance.new("UICorner")
+
+local toggle = false
+local lastPos = hrp.Position
+local targetPos = Vector3.new(0, -80000000, 0)
+local db = false
+local velConn
+
+gui.Parent = plr:WaitForChild("PlayerGui")
+
+btn.Size = UDim2.new(0, 120, 0, 50)
+btn.Position = UDim2.new(0.5, -60, 0.5, -25)
+btn.Text = "مطفئ"
+btn.TextSize = 22
+btn.TextColor3 = Color3.fromRGB(220, 180, 255)
+btn.BackgroundColor3 = Color3.fromRGB(30, 10, 50)
+btn.Font = Enum.Font.GothamBold
+btn.Draggable = true
+btn.Parent = gui
+
+uicorner.CornerRadius = UDim.new(0, 12)
+uicorner.Parent = btn
+
+glow.Thickness = 3
+glow.Color = Color3.fromRGB(180, 120, 255)
+glow.Parent = btn
+
+outerGlow.Thickness = 6
+outerGlow.Color = Color3.fromRGB(110, 60, 180)
+outerGlow.Parent = btn
+
+task.spawn(function()
+	while task.wait(0.5) do
+		local newColor = Color3.fromRGB(
+			math.random(170, 220),
+			math.random(100, 160),
+			math.random(200, 255)
+		)
+		glow.Color = newColor
+		btn.TextColor3 = newColor
+	end
+end)
+
+for _, gaze in ipairs(workspace:GetDescendants()) do
+	if gaze:IsA("Part") and gaze.Name == "Gaze" and gaze.Transparency == 0.5 then
+		gaze:Destroy()
+	end
+end
+
+local function createTween(targetCFrame)
+	local tweenInfo = TweenInfo.new(TeleportTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+	return TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+end
+
+local function startVelLoop()
+	velConn = RunService.Heartbeat:Connect(function()
+		if toggle then
+			hrp.Velocity = Vector3.new(0, 0, 0)
+		end
+	end)
+end
+
+local function stopVelLoop()
+	if velConn then
+		velConn:Disconnect()
+		velConn = nil
+	end
+end
+
+local function toggleTween()
+	if db then return end
+	if toggle then
+		db = true
+		toggle = false
+		stopVelLoop()
+		local tweenBack = createTween(CFrame.new(lastPos))
+		tweenBack:Play()
+		btn.Text = "انتضر"
+		btn.BackgroundColor3 = Color3.fromRGB(60, 20, 90)
+		tweenBack.Completed:Wait()
+		btn.Text = "مطفئ"
+		btn.BackgroundColor3 = Color3.fromRGB(30, 10, 50)
+		db = false
+		workspace.FallenPartsDestroyHeight = -500
+		resetCameraSubject()
+		for _, gaze in ipairs(workspace:GetDescendants()) do
+			if gaze:IsA("Part") and gaze.Name == "Gaze" and gaze.Transparency == 0.5 then
+				gaze:Destroy()
+			end
+		end
+	else
+		db = true
+		lastPos = hrp.Position
+		local part = Instance.new("Part")
+		part.Size = Vector3.new(4, 5, 4)
+		part.Position = lastPos
+		part.Anchored = true
+		part.CanCollide = false
+		part.Transparency = 0.5
+		part.Name = "gaze"
+		part.Color = Color3.fromRGB(180, 120, 255)
+		part.Material = Enum.Material.Neon
+		part.Parent = game.Workspace
+		workspace.CurrentCamera.CameraSubject = part
+		toggle = true
+		task.wait()
+		workspace.FallenPartsDestroyHeight = 0/0
+		local tweenToTarget = createTween(CFrame.new(targetPos))
+		tweenToTarget:Play()
+		btn.Text = "انتضر"
+		btn.BackgroundColor3 = Color3.fromRGB(60, 20, 90)
+		tweenToTarget.Completed:Wait()
+		btn.Text = "مفعل"
+		btn.BackgroundColor3 = Color3.fromRGB(160, 90, 255)
+		db = false
+		startVelLoop()
+	end
+end
+
+btn.MouseButton1Click:Connect(toggleTween)
